@@ -16,12 +16,8 @@ public class WebServer {
 		}
 
 		try (ServerSocket listenSocket = new ServerSocket(port)) {
-			System.out.println("port = " + port);
-
 			Socket connection;
-			int i = 0;
 			while ((connection = listenSocket.accept()) != null) {
-				System.out.println(i++);
 				RequestHandler requestHandler = new RequestHandler(connection);
 				requestHandler.start();
 			}
