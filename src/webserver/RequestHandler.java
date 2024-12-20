@@ -5,7 +5,7 @@ import util.StringUtil;
 
 import java.io.*;
 import java.net.Socket;
-import java.nio.file.Files;
+import java.util.HashMap;
 
 public class RequestHandler extends Thread {
 
@@ -25,9 +25,14 @@ public class RequestHandler extends Thread {
 
 			String requestUrl = getUrlInfoFromRequest(in);
 
-			if (requestUrl.contains("?") && requestUrl.indexOf("?") < requestUrl.length() - 1) {
-				String[] parameterInfo = requestUrl.split("\\?");
-				String queryParam = parameterInfo[1];
+			HashMap<String, String> queryParam = null;
+
+			if (isValidQueryString(requestUrl)) {
+				queryParam = getQueryParam(requestUrl);
+			}
+
+			if (queryParam != null && !queryParam.isEmpty()) {
+				queryParam.forEach((key, value) -> System.out.println(key + ": " + value));
 			}
 
 			byte[] body = null;
@@ -46,6 +51,23 @@ public class RequestHandler extends Thread {
 		} catch (IOException e) {
 			System.out.println("handler error : " + e.getMessage());
 		}
+	}
+
+	private static HashMap<String, String> getQueryParam(String requestUrl) {
+		HashMap<String, String> returnMap = new HashMap<>();
+		String[] parameterInfo = requestUrl.split("\\?");
+		String queryString = parameterInfo[1];
+		String[] pairs = queryString.split("&");
+		for (String pair : pairs) {
+			String[] keyValue = pair.split("=");
+			returnMap.put(keyValue[0], (keyValue.length == 2) ? keyValue[1] : "");
+		}
+		return returnMap;
+	}
+
+	private boolean isValidQueryString(String requestUrl) {
+		return requestUrl.contains("?")
+				&& requestUrl.indexOf("?") < requestUrl.length() - 1;
 	}
 
 	private String getUrlInfoFromRequest(InputStream in) throws IOException {
