@@ -1,11 +1,17 @@
 package webserver;
 
+import util.GetStaticResource;
+import util.StringUtil;
+
 import java.io.*;
 import java.net.Socket;
+import java.nio.file.Files;
 
 public class RequestHandler extends Thread {
 
 	private Socket connection;
+	private StringUtil util = new StringUtil();
+	private GetStaticResource htmlViewr = new GetStaticResource();
 
 	public RequestHandler(Socket connectionSocket) {
 		this.connection = connectionSocket;
@@ -17,50 +23,39 @@ public class RequestHandler extends Thread {
 		try (InputStream in = connection.getInputStream();
 			 OutputStream out = connection.getOutputStream()) {
 
-			String requestUrl = getRequestUrl(in);
+			String requestUrl = getUrlInfoFromRequest(in);
 
 			byte[] body = null;
 
-            if (requestUrl != null && requestUrl.equals("/index.html")) {
-				String indexHtml = "<html>";
-				indexHtml += "<head></head>";
-				indexHtml += "<body>indexHtml</body>";
-				indexHtml += "</html>";
-				body = indexHtml.getBytes();
-            } else {
-				String indexHtml = "<html>";
-				indexHtml += "<head></head>";
-				indexHtml += "<body>else body</body>";
-				indexHtml += "</html>";
-				body = indexHtml.getBytes();
+            if ("/index.html".equals(requestUrl)) {
+				body = htmlViewr.getHtmlInfo("index");
+			} else if ("/user/form.html".equals(requestUrl)) {
+				body = htmlViewr.getHtmlInfo("user/form");
+			} else {
+				body = htmlViewr.getHtmlInfo("exception/notfound");
 			}
 
 			DataOutputStream dos = new DataOutputStream(out);
 			response200Header(dos, body.length);
 			responseBody(dos, body);
 		} catch (IOException e) {
-			System.out.println(e.getMessage());
+			System.out.println("handler error : " + e.getMessage());
 		}
 	}
 
-	private String getRequestUrl(InputStream in) throws IOException {
-		DataInputStream dis = new DataInputStream(in);
-		int count = in.available();
-		byte[] b = new byte[count];
-		dis.read(b); //해당 코드 유무에 따라 결과값이 완전하게 달라진다.
+	private String getUrlInfoFromRequest(InputStream in) throws IOException {
+		InputStreamReader isr = new InputStreamReader(in);
+		BufferedReader br = new BufferedReader(isr);
 
-		String inputString = new String(b);
-		System.out.println("inputString = " + inputString);
-		String requestUrl = null;
-
-		String[] resultArray = inputString.split("\\r\\n");
-
-		if (!resultArray[0].isBlank()) {
-			String[] headerArray = resultArray[0].split(" ");
-			requestUrl = headerArray[1];
+		StringBuilder requestInfo = new StringBuilder();
+		String brLine;
+		while ((brLine = br.readLine()) != null) {
+			requestInfo.append(brLine).append(System.lineSeparator());
+			if (brLine.isEmpty()) {
+				break;
+			}
 		}
-
-		return requestUrl;
+		return util.getRequestStartLine(requestInfo.toString());
 	}
 
 	private void response200Header(DataOutputStream dos, int lengthOfBodyContent) {
@@ -70,7 +65,7 @@ public class RequestHandler extends Thread {
 			dos.writeBytes("Content-Length: " + lengthOfBodyContent + "\r\n");
 			dos.writeBytes("\r\n");
 		} catch (IOException e) {
-			System.out.println(e.getMessage());
+			System.out.println("200header err : " + e.getMessage());
 		}
 	}
 
@@ -80,7 +75,7 @@ public class RequestHandler extends Thread {
 			dos.writeBytes("\r\n");
 			dos.flush();
 		} catch (IOException e) {
-			System.out.println(e.getMessage());
+			System.out.println("responseBody err : " + e.getMessage());
 		}
 	}
 }
