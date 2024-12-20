@@ -25,6 +25,11 @@ public class RequestHandler extends Thread {
 
 			String requestUrl = getUrlInfoFromRequest(in);
 
+			if (requestUrl.contains("?") && requestUrl.indexOf("?") < requestUrl.length() - 1) {
+				String[] parameterInfo = requestUrl.split("\\?");
+				String queryParam = parameterInfo[1];
+			}
+
 			byte[] body = null;
 
             if ("/index.html".equals(requestUrl)) {
@@ -32,7 +37,7 @@ public class RequestHandler extends Thread {
 			} else if ("/user/form.html".equals(requestUrl)) {
 				body = htmlViewr.getHtmlInfo("user/form");
 			} else {
-				body = htmlViewr.getHtmlInfo("exception/notfound");
+				body = htmlViewr.getHtmlInfo("exception/not-found");
 			}
 
 			DataOutputStream dos = new DataOutputStream(out);
