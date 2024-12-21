@@ -37,7 +37,7 @@ public class RequestHandler extends Thread {
 
 			byte[] body = null;
 
-            if ("/index.html".equals(requestUrl)) {
+            if ("/index.html".equals(requestUrl) || "/".equals(requestUrl)) {
 				body = htmlViewr.getHtmlInfo("index");
 			} else if ("/user/form.html".equals(requestUrl)) {
 				body = htmlViewr.getHtmlInfo("user/form");
