@@ -2,12 +2,16 @@ package org.example.webserver;
 
 import org.example.util.GetStaticResource;
 import org.example.util.StringUtil;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.io.*;
 import java.net.Socket;
 import java.util.HashMap;
 
 public class RequestHandler extends Thread {
+
+	private static final Logger logger = LoggerFactory.getLogger(RequestHandler.class);
 
 	private Socket connection;
 	private StringUtil util = new StringUtil();
@@ -18,8 +22,9 @@ public class RequestHandler extends Thread {
 	}
 
 	public void run() {
-//		System.out.println("ip = " + connection.getInetAddress());
-//		System.out.println("port = " + connection.getPort());
+		logger.info("ip={}", connection.getInetAddress());
+		logger.info("port={}", connection.getPort());
+
 		try (InputStream in = connection.getInputStream();
 			 OutputStream out = connection.getOutputStream()) {
 
@@ -49,7 +54,7 @@ public class RequestHandler extends Thread {
 			response200Header(dos, body.length);
 			responseBody(dos, body);
 		} catch (IOException e) {
-			System.out.println("handler error : " + e.getMessage());
+			logger.error(e.getMessage());
 		}
 	}
 
@@ -77,6 +82,7 @@ public class RequestHandler extends Thread {
 		StringBuilder requestInfo = new StringBuilder();
 		String brLine;
 		while ((brLine = br.readLine()) != null) {
+			logger.info(brLine);
 			requestInfo.append(brLine).append(System.lineSeparator());
 			if (brLine.isEmpty()) {
 				break;
@@ -92,7 +98,7 @@ public class RequestHandler extends Thread {
 			dos.writeBytes("Content-Length: " + lengthOfBodyContent + "\r\n");
 			dos.writeBytes("\r\n");
 		} catch (IOException e) {
-			System.out.println("200header err : " + e.getMessage());
+			logger.error(e.getMessage());
 		}
 	}
 
@@ -102,7 +108,7 @@ public class RequestHandler extends Thread {
 			dos.writeBytes("\r\n");
 			dos.flush();
 		} catch (IOException e) {
-			System.out.println("responseBody err : " + e.getMessage());
+			logger.error(e.getMessage());
 		}
 	}
 }
