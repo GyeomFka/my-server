@@ -17,4 +17,13 @@
 - index.html로 호출 시 index.html을 반환한다.
   - 
 
+-----
 
+html은 기본적으로 GET과 POST만 지원한다
+rest 설계와 ajax로 개발하고자 한다면 GET POST PUT DELETE 까지 고려해야한다.
+
+
+----
+
+로그인 성공 후 index페이지로 가면은 로그인 false인 상태다
+requesthandler 메소드를 손봐야할것같다

@@ -1,82 +1,118 @@
 package org.example.webserver;
 
-import org.example.util.GetStaticResource;
-import org.example.util.StringUtil;
+import org.example.model.User;
+import org.example.repository.Repository;
+import org.example.util.HttpRequestUtils;
+import org.example.util.IOUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.io.*;
 import java.net.Socket;
-import java.util.HashMap;
+import java.nio.file.Files;
+import java.util.Map;
 
 public class RequestHandler extends Thread {
 	private static final Logger logger = LoggerFactory.getLogger(RequestHandler.class);
 
 	private Socket connection;
 
-	public RequestHandler(Socket connectionSocket) {
+	private Repository repository;
+
+	public RequestHandler(Socket connectionSocket, Repository repository) {
 		this.connection = connectionSocket;
+		this.repository = repository;
 	}
 
 	public void run() {
-//		logger.info("ip={}", connection.getInetAddress());
-//		logger.info("port={}", connection.getPort());
+		logger.info("ip={}", connection.getInetAddress());
+		logger.info("port={}", connection.getPort());
+
 		try (InputStream in = connection.getInputStream();
 			 OutputStream out = connection.getOutputStream()) {
 
-			InputStreamReader isr = new InputStreamReader(in);
-			BufferedReader br = new BufferedReader(isr);
+			BufferedReader br = new BufferedReader(new InputStreamReader(in, "UTF-8"));
 
-			String requestUrl;
-			StringBuilder requestInfo = new StringBuilder();
-			String brLine;
-
-			while ((brLine = br.readLine()) != null && !brLine.isEmpty()) {
-				logger.info(brLine);
-				requestInfo.append(brLine).append(System.lineSeparator());
+			String line = br.readLine();
+			if (line == null) {
+				return;
 			}
 
-			requestUrl = StringUtil.getRequestStartLine(requestInfo.toString());
+			logger.info("request={}", line);
+			String[] requestInfos = line.split(" ");
 
-			HashMap<String, String> queryParam = null;
+			String HTTP_METHOD = requestInfos[0];
+			String URI = requestInfos[1];
+			String VERSION = requestInfos[2];
 
-			if (StringUtil.isValidQueryString(requestUrl)) {
-				queryParam = getQueryParam(requestUrl);
-				logger.info("queryParam={}", queryParam);
+			int contentLength = 0;
+			boolean isLogined = false;
+			while (!line.equals("")) {
+				line = br.readLine();
+//				logger.info("header={}", line);
+				if ("POST".equals(HTTP_METHOD) && line.contains("Content-Length")) {
+					contentLength = getContentLength(line);
+				}
+
+				if (line.contains("Cookie")) {
+					logger.info("#### login 성공");
+					isLogined = isLogin(line);
+				}
 			}
 
-			if (queryParam != null && !queryParam.isEmpty()) {
-				queryParam.forEach((key, value) -> logger.info(key + ": " + value));
-			}
+			logger.info(" *** 현재 회원 수={}", repository.findAll().size() + "명 *** ");
 
-			byte[] body = null;
-
-            if ("/index.html".equals(requestUrl) || "/".equals(requestUrl)) {
-				body = GetStaticResource.getHtmlInfo("index");
-			} else if ("/user/form.html".equals(requestUrl)) {
-				body = GetStaticResource.getHtmlInfo("user/form");
+			if ("/user/create".equals(URI)) {
+				String queryString = IOUtils.readData(br, contentLength);
+				Map<String, String> paramMap = HttpRequestUtils.parseQueryString(queryString);
+				logger.info("paramMap={}", paramMap);
+				repository.addUser(new User(paramMap.get("userId"), paramMap.get("password"), paramMap.get("name")
+						, paramMap.get("email")));
+				response302Header(new DataOutputStream(out));
+			} else if ("/user/login".equals(URI)) {
+				String queryString = IOUtils.readData(br, contentLength);
+				Map<String, String> paramMap = HttpRequestUtils.parseQueryString(queryString);
+				User user = repository.findUserById(paramMap.get("userId"));
+				if (user != null) {
+					logger.info("loginUser={}", user.toString());
+					if (user.getPassword().equals(paramMap.get("password"))) { // 로그인 성공
+						DataOutputStream dos = new DataOutputStream(out);
+						response302LoginSuccessHeader(dos);
+					} else { // 로그인 실패
+						responseResource(out, "/user/login-failed.html");
+					}
+				} else { // 로그인 실패
+					responseResource(out, "/user/login-failed.html");
+				}
 			} else {
-				body = GetStaticResource.getHtmlInfo("exception/not-found");
+				responseResource(out, URI);
 			}
-
-			DataOutputStream dos = new DataOutputStream(out);
-			response200Header(dos, body.length);
-			responseBody(dos, body);
 		} catch (IOException e) {
 			logger.error(e.getMessage());
 		}
 	}
 
-	private static HashMap<String, String> getQueryParam(String requestUrl) {
-		HashMap<String, String> returnMap = new HashMap<>();
-		String[] parameterInfo = requestUrl.split("\\?");
-		String queryString = parameterInfo[1];
-		String[] pairs = queryString.split("&");
-		for (String pair : pairs) {
-			String[] keyValue = pair.split("=");
-			returnMap.put(keyValue[0], (keyValue.length == 2) ? keyValue[1] : "");
+	private boolean isLogin(String line) {
+		String[] headerTokens = line.split(":");
+		Map<String, String> cookies = HttpRequestUtils.parseCookies(headerTokens[1].trim());
+		String value = cookies.get("logined");
+		if (value == null) {
+			return false;
 		}
-		return returnMap;
+		return Boolean.parseBoolean(value);
+	}
+
+	private void responseResource(OutputStream out, String uri) throws IOException {
+		DataOutputStream dos = new DataOutputStream(out);
+		if ("/".equals(uri)) uri = "index.html";
+		byte[] body = Files.readAllBytes(new File("./webapp/" + uri).toPath());
+		response200Header(dos, body.length);
+		responseBody(dos, body);
+	}
+
+	private int getContentLength(String brLine) {
+		String[] headerTokens = brLine.split(":");
+		return Integer.parseInt(headerTokens[1].trim());
 	}
 
 	private void response200Header(DataOutputStream dos, int lengthOfBodyContent) {
@@ -89,6 +125,27 @@ public class RequestHandler extends Thread {
 			logger.error(e.getMessage());
 		}
 	}
+
+	private void response302LoginSuccessHeader(DataOutputStream dos) {
+        try {
+            dos.writeBytes("HTTP/1.1 302 Redirect \r\n");
+            dos.writeBytes("Set-Cookie: logined=true \r\n");
+            dos.writeBytes("Location: /index.html \r\n");
+            dos.writeBytes("\r\n");
+        } catch (IOException e) {
+			logger.error(e.getMessage());
+        }
+    }
+
+	private void response302Header(DataOutputStream dos) {
+        try {
+            dos.writeBytes("HTTP/1.1 302 Redirect \r\n");
+            dos.writeBytes("Location: /index.html \r\n");
+            dos.writeBytes("\r\n");
+        } catch (IOException e) {
+			logger.error(e.getMessage());
+        }
+    }
 
 	private void responseBody(DataOutputStream dos, byte[] body) {
 		try {
