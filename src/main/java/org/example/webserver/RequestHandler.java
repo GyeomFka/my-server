@@ -10,6 +10,7 @@ import org.slf4j.LoggerFactory;
 import java.io.*;
 import java.net.Socket;
 import java.nio.file.Files;
+import java.util.ArrayList;
 import java.util.Map;
 
 public class RequestHandler extends Thread {
@@ -49,13 +50,13 @@ public class RequestHandler extends Thread {
 			boolean isLogined = false;
 			while (!line.equals("")) {
 				line = br.readLine();
-//				logger.info("header={}", line);
-				if ("POST".equals(HTTP_METHOD) && line.contains("Content-Length")) {
+				logger.info("header={}", line);
+				if ("POST".equals(HTTP_METHOD) && line.startsWith("Content-Length")) { //만약 get방식 조회 search parameter에 Content-Length 가 포함되어있으면 어떻게함 ?
 					contentLength = getContentLength(line);
 				}
 
 				if (line.contains("Cookie")) {
-					logger.info("#### login 성공");
+					logger.info("cookie line={}", line.toString());
 					isLogined = isLogin(line);
 				}
 			}
@@ -84,6 +85,28 @@ public class RequestHandler extends Thread {
 				} else { // 로그인 실패
 					responseResource(out, "/user/login-failed.html");
 				}
+			} else if ("/user/list.html".equals(URI)) {
+				if (!isLogined) {
+					responseResource(out, "/user/login.html");
+					return;
+				}
+
+				ArrayList<User> userList = repository.findAll();
+				StringBuilder sb = new StringBuilder();
+				sb.append("<table border='1'>");
+				for (User user : userList) {
+					sb.append("<tr>");
+					sb.append("	<td>" + user.getUserId() + "</td>");
+					sb.append("	<td>" + user.getName() + "</td>");
+					sb.append("	<td>" + user.getEmail() + "</td>");
+					sb.append("</tr>");
+				}
+				sb.append("</table>");
+
+				byte[] body = sb.toString().getBytes();
+				DataOutputStream dos = new DataOutputStream(out);
+				response200Header(dos, body.length);
+				responseBody(dos, body);
 			} else {
 				responseResource(out, URI);
 			}
