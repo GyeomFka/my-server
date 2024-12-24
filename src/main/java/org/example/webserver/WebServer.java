@@ -1,9 +1,14 @@
 package org.example.webserver;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 import java.net.ServerSocket;
 import java.net.Socket;
 
 public class WebServer {
+
+	private static final Logger logger = LoggerFactory.getLogger(WebServer.class);
 
 	private static final int DEFAULT_PORT = 8080;
 
@@ -15,7 +20,9 @@ public class WebServer {
 			port = Integer.parseInt(args[0]);
 		}
 
+
 		try (ServerSocket listenSocket = new ServerSocket(port)) {
+			logger.info("Web Application Server started {} port.", port);
 			Socket connection;
 			while ((connection = listenSocket.accept()) != null) {
 				RequestHandler requestHandler = new RequestHandler(connection);
