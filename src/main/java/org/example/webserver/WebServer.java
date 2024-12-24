@@ -20,7 +20,6 @@ public class WebServer {
 			port = Integer.parseInt(args[0]);
 		}
 
-
 		try (ServerSocket listenSocket = new ServerSocket(port)) {
 			logger.info("Web Application Server started {} port.", port);
 			Socket connection;
