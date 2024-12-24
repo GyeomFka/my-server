@@ -10,44 +10,53 @@ import java.net.Socket;
 import java.util.HashMap;
 
 public class RequestHandler extends Thread {
-
 	private static final Logger logger = LoggerFactory.getLogger(RequestHandler.class);
 
 	private Socket connection;
-	private StringUtil util = new StringUtil();
-	private GetStaticResource htmlViewr = new GetStaticResource();
 
 	public RequestHandler(Socket connectionSocket) {
 		this.connection = connectionSocket;
 	}
 
 	public void run() {
-		logger.info("ip={}", connection.getInetAddress());
-		logger.info("port={}", connection.getPort());
-
+//		logger.info("ip={}", connection.getInetAddress());
+//		logger.info("port={}", connection.getPort());
 		try (InputStream in = connection.getInputStream();
 			 OutputStream out = connection.getOutputStream()) {
 
-			String requestUrl = getUrlInfoFromRequest(in);
+			InputStreamReader isr = new InputStreamReader(in);
+			BufferedReader br = new BufferedReader(isr);
+
+			String requestUrl;
+			StringBuilder requestInfo = new StringBuilder();
+			String brLine;
+
+			while ((brLine = br.readLine()) != null && !brLine.isEmpty()) {
+				logger.info(brLine);
+				requestInfo.append(brLine).append(System.lineSeparator());
+			}
+
+			requestUrl = StringUtil.getRequestStartLine(requestInfo.toString());
 
 			HashMap<String, String> queryParam = null;
 
-			if (isValidQueryString(requestUrl)) {
+			if (StringUtil.isValidQueryString(requestUrl)) {
 				queryParam = getQueryParam(requestUrl);
+				logger.info("queryParam={}", queryParam);
 			}
 
 			if (queryParam != null && !queryParam.isEmpty()) {
-				queryParam.forEach((key, value) -> System.out.println(key + ": " + value));
+				queryParam.forEach((key, value) -> logger.info(key + ": " + value));
 			}
 
 			byte[] body = null;
 
             if ("/index.html".equals(requestUrl) || "/".equals(requestUrl)) {
-				body = htmlViewr.getHtmlInfo("index");
+				body = GetStaticResource.getHtmlInfo("index");
 			} else if ("/user/form.html".equals(requestUrl)) {
-				body = htmlViewr.getHtmlInfo("user/form");
+				body = GetStaticResource.getHtmlInfo("user/form");
 			} else {
-				body = htmlViewr.getHtmlInfo("exception/not-found");
+				body = GetStaticResource.getHtmlInfo("exception/not-found");
 			}
 
 			DataOutputStream dos = new DataOutputStream(out);
@@ -68,27 +77,6 @@ public class RequestHandler extends Thread {
 			returnMap.put(keyValue[0], (keyValue.length == 2) ? keyValue[1] : "");
 		}
 		return returnMap;
-	}
-
-	private boolean isValidQueryString(String requestUrl) {
-		return requestUrl.contains("?")
-				&& requestUrl.indexOf("?") < requestUrl.length() - 1;
-	}
-
-	private String getUrlInfoFromRequest(InputStream in) throws IOException {
-		InputStreamReader isr = new InputStreamReader(in);
-		BufferedReader br = new BufferedReader(isr);
-
-		StringBuilder requestInfo = new StringBuilder();
-		String brLine;
-		while ((brLine = br.readLine()) != null) {
-			logger.info(brLine);
-			requestInfo.append(brLine).append(System.lineSeparator());
-			if (brLine.isEmpty()) {
-				break;
-			}
-		}
-		return util.getRequestStartLine(requestInfo.toString());
 	}
 
 	private void response200Header(DataOutputStream dos, int lengthOfBodyContent) {
