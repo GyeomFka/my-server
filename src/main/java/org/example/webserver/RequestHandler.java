@@ -1,5 +1,6 @@
 package org.example.webserver;
 
+import org.example.http.HttpRequest;
 import org.example.model.User;
 import org.example.repository.Repository;
 import org.example.util.HttpRequestUtils;
@@ -32,51 +33,20 @@ public class RequestHandler extends Thread {
 		try (InputStream in = connection.getInputStream();
 			 OutputStream out = connection.getOutputStream()) {
 
-			BufferedReader br = new BufferedReader(new InputStreamReader(in, "UTF-8"));
+			HttpRequest request = new HttpRequest(in);
+			String path = getDefaultPath(request.getPath());
 
-			String line = br.readLine();
-			if (line == null) {
-				return;
-			}
-
-			logger.info("request={}", line);
-			String[] requestInfos = line.split(" ");
-
-			String HTTP_METHOD = requestInfos[0];
-			String URI = requestInfos[1];
-			String VERSION = requestInfos[2];
-
-			int contentLength = 0;
-			boolean isLogined = false;
-			while (!line.equals("")) {
-				line = br.readLine();
-				logger.info("header={}", line);
-				if ("POST".equals(HTTP_METHOD) && line.startsWith("Content-Length")) { //만약 get방식 조회 search parameter에 Content-Length 가 포함되어있으면 어떻게함 ?
-					contentLength = getContentLength(line);
-				}
-
-				if (line.contains("Cookie")) {
-					logger.info("cookie line={}", line.toString());
-					isLogined = isLogin(line);
-				}
-			}
-
-			logger.info(" *** 현재 회원 수={}", repository.findAll().size() + "명 *** ");
-
-			if ("/user/create".equals(URI)) {
-				String queryString = IOUtils.readData(br, contentLength);
-				Map<String, String> paramMap = HttpRequestUtils.parseQueryString(queryString);
-				logger.info("paramMap={}", paramMap);
-				repository.addUser(new User(paramMap.get("userId"), paramMap.get("password"), paramMap.get("name")
-						, paramMap.get("email")));
+			if ("/user/create".equals(path)) {
+				repository.addUser(new User(request.getParameter("userId")
+						, request.getParameter("password")
+						, request.getParameter("name")
+						, request.getParameter("email")));
 				response302Header(new DataOutputStream(out));
-			} else if ("/user/login".equals(URI)) {
-				String queryString = IOUtils.readData(br, contentLength);
-				Map<String, String> paramMap = HttpRequestUtils.parseQueryString(queryString);
-				User user = repository.findUserById(paramMap.get("userId"));
+			} else if ("/user/login".equals(path)) {
+				User user = repository.findUserById(request.getParameter("userId"));
 				if (user != null) {
 					logger.info("loginUser={}", user.toString());
-					if (user.getPassword().equals(paramMap.get("password"))) { // 로그인 성공
+					if (user.getPassword().equals(request.getParameter("userId"))) { // 로그인 성공
 						DataOutputStream dos = new DataOutputStream(out);
 						response302LoginSuccessHeader(dos);
 					} else { // 로그인 실패
@@ -85,8 +55,8 @@ public class RequestHandler extends Thread {
 				} else { // 로그인 실패
 					responseResource(out, "/user/login-failed.html");
 				}
-			} else if ("/user/list.html".equals(URI)) {
-				if (!isLogined) {
+			} else if ("/user/list.html".equals(path)) {
+				if (!isLogin(request.getHeader("Cookie"))) { // 추후 cookie값 조회 로직 구현
 					responseResource(out, "/user/login.html");
 					return;
 				}
@@ -108,16 +78,15 @@ public class RequestHandler extends Thread {
 				response200Header(dos, body.length);
 				responseBody(dos, body);
 			} else {
-				responseResource(out, URI);
+//				responseResource(out, URI);
 			}
 		} catch (IOException e) {
 			logger.error(e.getMessage());
 		}
 	}
 
-	private boolean isLogin(String line) {
-		String[] headerTokens = line.split(":");
-		Map<String, String> cookies = HttpRequestUtils.parseCookies(headerTokens[1].trim());
+	private boolean isLogin(String cookieValue) {
+		Map<String, String> cookies = HttpRequestUtils.parseCookies(cookieValue);
 		String value = cookies.get("logined");
 		if (value == null) {
 			return false;
@@ -178,5 +147,12 @@ public class RequestHandler extends Thread {
 		} catch (IOException e) {
 			logger.error(e.getMessage());
 		}
+	}
+
+	private String getDefaultPath(String path) {
+		if (path.equals("/")) {
+			return "/index.html";
+		}
+		return path;
 	}
 }
