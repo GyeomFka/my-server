@@ -55,8 +55,9 @@ public class HttpResponse {
 
     public void sendRedirect(String redirectUrl) {
         try {
-            dos.writeBytes("HTTP/1.1 200 OK \r\n");
+            dos.writeBytes("HTTP/1.1 302 Found \r\n");
             processHeaders();
+            dos.writeBytes("Location: " + redirectUrl + "\r\n");
             dos.writeBytes("\r\n");
         } catch (IOException e) {
             logger.error(e.getMessage());
