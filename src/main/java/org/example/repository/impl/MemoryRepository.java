@@ -8,25 +8,22 @@ import java.util.Arrays;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
 
-public class MemoryRepository implements Repository {
-    ArrayList<User> userList = new ArrayList<>();
+public class MemoryRepository {
+    static ArrayList<User> userList = new ArrayList<>();
 
-    public MemoryRepository() {
+    static {
         userList.add(new User("aaa", "1234", "만겸", "aaaa@gmail.com"));
     }
 
-    @Override
-    public ArrayList<User> findAll() {
+    public static ArrayList<User> findAll() {
         return userList;
     }
 
-    @Override
-    public void addUser(User user) {
+    public static void addUser(User user) {
         userList.add(user);
     }
 
-    @Override
-    public User findUserById(String userId) {
+    public static User findUserById(String userId) {
         return userList.stream()
                 .filter(user -> userId.equals(user.getUserId()))
                 .findFirst()
