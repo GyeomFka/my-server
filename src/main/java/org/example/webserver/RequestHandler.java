@@ -15,6 +15,7 @@ import java.net.Socket;
 import java.nio.file.Files;
 import java.util.ArrayList;
 import java.util.Map;
+import java.util.UUID;
 
 public class RequestHandler extends Thread {
 	private static final Logger logger = LoggerFactory.getLogger(RequestHandler.class);
@@ -34,6 +35,11 @@ public class RequestHandler extends Thread {
 
 			HttpRequest request = new HttpRequest(in);
 			HttpResponse response = new HttpResponse(out);
+
+			if (getSessionId(request.getHeader("Cookie")) == null) {
+//			if (request.getCookies().getCookie()) {
+				response.addHeader("Set-Cookie", "JSESSIONID=" + UUID.randomUUID());
+			}
 			Controller controller = RequestMapping.getController(request.getPath());
 
 			if (controller == null) {
@@ -45,6 +51,11 @@ public class RequestHandler extends Thread {
 		} catch (IOException e) {
 			logger.error(e.getMessage());
 		}
+	}
+
+	private String getSessionId(String cookieValue) {
+		Map<String, String> cookies = HttpRequestUtils.parseCookies(cookieValue);
+		return cookies.get("JSESSIONID");
 	}
 
 	private String getDefaultPath(String path) {
