@@ -13,6 +13,7 @@ public class MemoryRepository {
 
     static {
         userList.add(new User("aaa", "1234", "만겸", "aaaa@gmail.com"));
+
     }
 
     public static ArrayList<User> findAll() {

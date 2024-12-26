@@ -16,7 +16,7 @@ public class LoginController extends AbstractController {
         User user = MemoryRepository.findUserById(request.getParameter("userId"));
         if (user != null) {
             logger.info("loginUser={}", user.toString());
-            if (user.getPassword().equals(request.getParameter("userId"))) { // 로그인 성공
+            if (user.getPassword().equals(request.getParameter("password"))) { // 로그인 성공
                 response.addHeader("Set-Cookie", "logined=true");
                 response.sendRedirect("/index.html");
             } else { // 로그인 실패

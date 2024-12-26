@@ -24,6 +24,7 @@ public class ListUserController extends AbstractController {
 
         ArrayList<User> userList = MemoryRepository.findAll();
         StringBuilder sb = new StringBuilder();
+        sb.append("<a>회원정보 수정</a>");
         sb.append("<table border='1'>");
         for (User user : userList) {
             sb.append("<tr>");
@@ -38,6 +39,7 @@ public class ListUserController extends AbstractController {
 
     private boolean isLogin(String cookieValue) {
         Map<String, String> cookies = HttpRequestUtils.parseCookies(cookieValue);
+        logger.info("cookies={}", cookies.toString());
         String value = cookies.get("logined");
         if (value == null) {
             return false;
